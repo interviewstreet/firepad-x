@@ -11,7 +11,8 @@ export enum ClientEvent {
   ApplyOperation = "apply",
   SendOperation = "send",
 }
-
+//lets seeeee
+console.log("trigger sesame")
 interface IClientStateMachine {
   /**
    * Tests whether the Client State is Synchronized with Server or not.
