@@ -1,4 +1,3 @@
-import firebase from "firebase";
 import * as monaco from "monaco-editor";
 import { v4 as uuid } from "uuid";
 
