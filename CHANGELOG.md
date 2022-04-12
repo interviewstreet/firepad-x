@@ -22,6 +22,10 @@ Good to have: commit or PR links.
 
 -->
 
+## v0.4.1-beta
+
+No Changes
+
 ## v0.4.0-beta [#51](https://github.com/interviewstreet/firepad-x/pull/51)
 
 ### Changed
