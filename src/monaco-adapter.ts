@@ -100,8 +100,8 @@ export class MonacoAdapter implements IEditorAdapter {
     this._isDisabled = false;
     this._ignoreChanges = false;
     this._initMonacoEvents();
-    this.operationsToBeApplied.forEach((operation) => {
-      this.applyOperation(operation);
+    this.operationsToBeApplied.forEach(async (operation) => {
+      await this.applyOperation(operation);
     });
     this.operationsToBeApplied = [];
   }
