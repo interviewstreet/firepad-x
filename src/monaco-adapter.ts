@@ -27,6 +27,8 @@ interface ITextModelWithUndoRedo extends monaco.editor.ITextModel {
   redo: UndoRedoCallbackType | null;
 }
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export class MonacoAdapter implements IEditorAdapter {
   protected readonly _monaco: monaco.editor.IStandaloneCodeEditor;
   protected readonly _classNames: string[];
@@ -101,6 +103,7 @@ export class MonacoAdapter implements IEditorAdapter {
     this._ignoreChanges = false;
     this._initMonacoEvents();
     this.operationsToBeApplied.forEach(async (operation) => {
+      await wait(0);
       await this.applyOperation(operation);
     });
     this.operationsToBeApplied = [];
