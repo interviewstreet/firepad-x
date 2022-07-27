@@ -6,5 +6,6 @@ export * from "./firepad";
 export * from "./firepad-monaco";
 export * from "./monaco-adapter";
 export * from "./text-operation";
+export * from "./monaco-editor-utils";
 
 export { Firepad as default } from "./firepad";

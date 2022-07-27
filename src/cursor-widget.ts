@@ -10,6 +10,7 @@
 import * as monaco from "monaco-editor";
 
 import { ClientIDType } from "./editor-adapter";
+import { IMonacoEditorUtilsAdapter } from "./monaco-editor-utils";
 import * as Utils from "./utils";
 
 type OnDisposed = Utils.VoidFunctionType;
@@ -22,6 +23,7 @@ export interface ICursorWidgetConstructorOptions {
   range: monaco.Range;
   tooltipDuration?: number;
   opacity?: string;
+  editorUtils: IMonacoEditorUtilsAdapter;
   onDisposed: OnDisposed;
 }
 
@@ -56,6 +58,7 @@ export class CursorWidget implements ICursorWidget {
   protected readonly _tooltipDuration: number;
   protected readonly _scrollListener: monaco.IDisposable | null;
   protected readonly _onDisposed: OnDisposed;
+  protected readonly _editorUtils: IMonacoEditorUtilsAdapter;
 
   protected _tooltipNode: HTMLElement;
   protected _color: string;
@@ -76,7 +79,8 @@ export class CursorWidget implements ICursorWidget {
     range,
     tooltipDuration = 1000,
     opacity = "1.0",
-    onDisposed,
+    editorUtils,
+    onDisposed
   }: ICursorWidgetConstructorOptions) {
     this._editor = codeEditor;
     this._tooltipDuration = tooltipDuration;
@@ -85,6 +89,7 @@ export class CursorWidget implements ICursorWidget {
     this._color = color;
     this._content = label;
     this._opacity = opacity;
+    this._editorUtils = editorUtils;
 
     this._domNode = this._createWidgetNode();
 
@@ -148,8 +153,8 @@ export class CursorWidget implements ICursorWidget {
     this._position = {
       position: range.getEndPosition(),
       preference: [
-        monaco.editor.ContentWidgetPositionPreference.ABOVE,
-        monaco.editor.ContentWidgetPositionPreference.BELOW,
+        this._editorUtils.getContentWidgetPositionPreference('ABOVE'),
+        this._editorUtils.getContentWidgetPositionPreference('BELOW'),
       ],
     };
 
