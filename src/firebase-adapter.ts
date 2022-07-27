@@ -156,6 +156,14 @@ export class FirebaseAdapter implements IDatabaseAdapter {
     this._init();
   }
 
+  public enable() {
+    this._zombie = false;
+  }
+
+  public disable() {
+    this._zombie = true;
+  }
+
   protected _init(): void {
     const connectedRef = this._databaseRef!.root.child(".info/connected");
 
