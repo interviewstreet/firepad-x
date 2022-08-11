@@ -77,7 +77,7 @@ $ yarn                                                        # install local np
 ### Start Dev Server
 
 ```bash
-$ cp configs/firebase.sample.json configs/firebase.json       # copy dummy config file
+$ cp configs/firebase.json.sample configs/firebase.json       # copy dummy config file
 
 $ vi configs/firebase.json                                    # update configuration
 
