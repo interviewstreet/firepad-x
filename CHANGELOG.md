@@ -21,6 +21,11 @@ Tags:
 Good to have: commit or PR links.
 
 -->
+## v0.5.2-beta [#56](https://github.com/interviewstreet/firepad-x/pull/56)
+
+### Changed
+
+- Added MonacoEditorUtilAdapter to support native monaco and monaco from vscode
 
 ## v0.4.2-beta [#55](https://github.com/interviewstreet/firepad-x/pull/55)
 
