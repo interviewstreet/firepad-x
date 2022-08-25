@@ -15,12 +15,10 @@ import { FirestoreAdapter } from "./firestore-adapter";
  * @param editor - Monaco Editor instance.
  * @param options - Firepad constructor options (optional).
  */
-export function fromMonaco(
+export function fromMonacoWithFirebase(
   databaseRef: string | firebase.database.Reference,
   editor: monaco.editor.IStandaloneCodeEditor,
-  options: Partial<IFirepadConstructorOptions> = {},
-  // adding firestoreRef as optional param temporarily, once the migration completes will remove databaseRef and replace with firestoreRef
-  firestoreRef?: firebase.firestore.DocumentReference
+  options: Partial<IFirepadConstructorOptions> = {}
 ): IFirepad {
   // Initialize constructor options with their default values
   const userId: UserIDType = options.userId || uuid();
@@ -29,31 +27,67 @@ export function fromMonaco(
   const userName: string = options.userName || userId.toString();
   const defaultText: string = options.defaultText || editor.getValue();
 
-  let databaseAdapter: IDatabaseAdapter;
-
-  if (firestoreRef) {
-    databaseAdapter = new FirestoreAdapter(
-      databaseRef,
-      firestoreRef,
-      userId,
-      userColor,
-      userName
-    );
-  } else {
-    databaseAdapter = new FirebaseAdapter(
-      databaseRef,
-      userId,
-      userColor,
-      userName
-    );
-  }
+  let databaseAdapter: IDatabaseAdapter = new FirebaseAdapter(
+    databaseRef,
+    userId,
+    userColor,
+    userName
+  );
 
   const editorAdapter = new MonacoAdapter(editor, false);
-
   return new Firepad(databaseAdapter, editorAdapter, {
     userId,
     userName,
     userColor,
     defaultText,
   });
+}
+
+/**
+ * Creates a modern Firepad from Monaco editor.
+ * @param databaseRef - Firestore database document Reference.
+ * @param editor - Monaco Editor instance.
+ * @param options - Firepad constructor options (optional).
+ */
+export function fromMonacoWithFirestore(
+  databaseRef: firebase.firestore.DocumentReference, //TODO should we support path : string
+  editor: monaco.editor.IStandaloneCodeEditor,
+  options: Partial<IFirepadConstructorOptions> = {}
+): IFirepad {
+  // Initialize constructor options with their default values
+  const userId: UserIDType = options.userId || uuid();
+  const userColor: string =
+    options.userColor || Utils.colorFromUserId(userId.toString());
+  const userName: string = options.userName || userId.toString();
+  const defaultText: string = options.defaultText || editor.getValue();
+
+  let databaseAdapter: IDatabaseAdapter = new FirestoreAdapter(
+    null,
+    databaseRef,
+    userId,
+    userColor,
+    userName
+  );
+
+  const editorAdapter = new MonacoAdapter(editor, false);
+  return new Firepad(databaseAdapter, editorAdapter, {
+    userId,
+    userName,
+    userColor,
+    defaultText,
+  });
+}
+
+/**
+ * Creates a modern Firepad from Monaco editor.
+ * @param databaseRef - Firebase database Reference path.
+ * @param editor - Monaco Editor instance.
+ * @param options - Firepad constructor options (optional).
+ */
+export function fromMonaco(
+  databaseRef: string | firebase.database.Reference,
+  editor: monaco.editor.IStandaloneCodeEditor,
+  options: Partial<IFirepadConstructorOptions> = {}
+): IFirepad {
+  return fromMonacoWithFirebase(databaseRef, editor, options);
 }
