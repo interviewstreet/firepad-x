@@ -96,11 +96,17 @@ export class FirestoreAdapter implements IDatabaseAdapter {
   protected _firestoreUserRef: firebase.firestore.DocumentReference | null;
   protected _firestoreRef: firebase.firestore.DocumentReference | null;
   protected _firebaseCallbacks: FirebaseRefCallbackHookType[];
+  protected _typingState: any;
+  protected _userColorMap: any;
 
   /** Frequency of Text Operation to mark as checkpoint */
   protected static readonly CHECKPOINT_FREQUENCY: number = 100;
 
-  protected static readonly MAX_CURSOR_SYNC_TIME: number = 1 * 60 * 1000;
+  protected static readonly MAX_CURSOR_SYNC_TIME: number = 1 * 10 * 1000;
+
+  protected static readonly CURSOR_RANGE_SELECTION_DELAY: number = 300;
+
+  protected static readonly CURSOR_EVENT_DEFER_DELAY: number = 1500;
 
   /**
    * Creates a Database adapter for Firebase
@@ -121,6 +127,8 @@ export class FirestoreAdapter implements IDatabaseAdapter {
     this._firebaseCallbacks = [];
     this._zombie = false;
     this._initialRevisions = false;
+    this._userColorMap = new Map();
+    this._typingState = new Map();
 
     // Add User Information
     this.setUserId(userId);
@@ -434,6 +442,7 @@ export class FirestoreAdapter implements IDatabaseAdapter {
           }
         } else {
           this._trigger(FirebaseAdapterEvent.Operation, revision.operation);
+          this._syncCursorForTypingEvents(revision);
         }
       }
       delete pending[revisionId];
@@ -445,6 +454,67 @@ export class FirestoreAdapter implements IDatabaseAdapter {
       this._sent = null;
       this._trigger(FirebaseAdapterEvent.Retry);
     }
+  }
+
+  /**
+   * @desc Perform cursor sync. In case of Fire"Store" database, updates are batched unlike Fire"base" RTDB.
+   * In case of firestore, the cursor updates arrive first before the text operation
+   * That results in inappropriate cursor placement. Idea is to "ignore" the cursor events
+   * once the typing is started by the remote user. Make sure to block cursor events for
+   * the same user from where the operations are being received.
+   * @param revision - Revision with author and Operation information
+   */
+  protected _syncCursorForTypingEvents(revision: IRevision): void {
+    const author: string = revision.author;
+    const operations: Array<TextOperation> = revision.operation.getOps();
+    const firstOperation: TextOperation = operations[0];
+    const secondOperation: TextOperation = operations[1];
+
+    let position = 0;
+
+    if (firstOperation?.isRetain()) {
+      position += firstOperation.chars;
+    }
+
+    if (secondOperation?.isInsert()) {
+      position += secondOperation.text.length;
+    }
+
+    setTimeout(() => {
+      if (this._zombie) {
+        return;
+      }
+
+      const { color, name } = this._userColorMap.get(revision.author);
+
+      this._trigger(
+        FirebaseAdapterEvent.CursorChange,
+        author,
+        { position, selectionEnd: position },
+        color,
+        name
+      );
+    }, 1);
+
+    if (this._typingState.has(author)) {
+      clearTimeout(this._typingState.get(author));
+      this._typingState.delete(author);
+    }
+
+    const timerId: TimeoutID = setTimeout(() => {
+      /**
+       * Unblock remote users for
+       * 1. Code range Highlight events
+       * 2. Code navigation using keyboard events
+       */
+      this._typingState.delete(author);
+    }, FirestoreAdapter.CURSOR_EVENT_DEFER_DELAY);
+
+    /**
+     * Block early arriving cursor events when remote
+     * user is typing
+     */
+    this._typingState.set(author, timerId);
   }
 
   sendOperation(
@@ -673,6 +743,32 @@ export class FirestoreAdapter implements IDatabaseAdapter {
         if (change.type === "added" || change.type === "modified") {
           const userId = change.doc.id;
           const userData = change.doc.data() as FirebaseCursorDataType;
+          const {
+            position: cPosition,
+            selectionEnd: cSelectionEnd,
+          } = userData.cursor;
+          const isRangeSelected: boolean = cPosition !== cSelectionEnd;
+
+          this._userColorMap.set(userId, {
+            color: userData.color,
+            name: userData.name,
+          });
+
+          if (this._typingState.has(userId) && !isRangeSelected) {
+            /**
+             * When the operations are being received and it is not
+             * code range highlighting,
+             * early return to defer cursor events arriving before text operations
+             * for given user id
+             */
+            return;
+          }
+
+          /**
+           * This code will only execute when:
+           * 1. Remote user(s) navigates through code using cursor
+           * 2. Remote user(s) highlighting the code range
+           */
           if (userData.color && userData.name && !this._zombie) {
             this._trigger(
               FirebaseAdapterEvent.CursorChange,
