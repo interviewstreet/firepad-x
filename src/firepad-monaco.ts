@@ -62,7 +62,6 @@ export function fromMonacoWithFirestore(
   const defaultText: string = options.defaultText || editor.getValue();
 
   let databaseAdapter: IDatabaseAdapter = new FirestoreAdapter(
-    null,
     databaseRef,
     userId,
     userColor,

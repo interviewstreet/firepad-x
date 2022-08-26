@@ -94,7 +94,6 @@ export class FirestoreAdapter implements IDatabaseAdapter {
   protected _document: ITextOperation | null;
   protected _userRef: firebase.database.Reference | null;
   protected _firestoreUserRef: firebase.firestore.DocumentReference | null;
-  protected _databaseRef: firebase.database.Reference | null;
   protected _firestoreRef: firebase.firestore.DocumentReference | null;
   protected _firebaseCallbacks: FirebaseRefCallbackHookType[];
 
@@ -105,24 +104,18 @@ export class FirestoreAdapter implements IDatabaseAdapter {
 
   /**
    * Creates a Database adapter for Firebase
-   * @param databaseRef - Firebase Database path or Reference object
+   * @param firestoreRef - Firestore Reference object
    * @param userId - Unique Identifier of the User
    * @param userColor - Color of the Cursor of the User
    * @param userName - Name of the Cursor of the User
    */
   constructor(
-    databaseRef: string | firebase.database.Reference,
     firestoreRef: firebase.firestore.DocumentReference,
     userId: number | string,
     userColor: string,
     userName: string
   ) {
-    if (typeof databaseRef !== "object") {
-      databaseRef = firebase.database().ref(databaseRef);
-    }
-
     // Add Database Ref and states
-    this._databaseRef = databaseRef;
     this._firestoreRef = firestoreRef;
     this._ready = false;
     this._firebaseCallbacks = [];
@@ -171,17 +164,17 @@ export class FirestoreAdapter implements IDatabaseAdapter {
   }
 
   protected _init(): void {
-    const connectedRef = this._databaseRef!.root.child(".info/connected");
+    // const connectedRef = this._databaseRef!.root.child(".info/connected");
 
-    this._firebaseOn(
-      connectedRef,
-      "value",
-      (snapshot: firebase.database.DataSnapshot) => {
-        if (snapshot.val() === true) {
-          this._initializeUserData();
-        }
-      }
-    );
+    // this._firebaseOn(
+    //   connectedRef,
+    //   "value",
+    //   (snapshot: firebase.database.DataSnapshot) => {
+    //     if (snapshot.val() === true) {
+    //       this._initializeUserData();
+    //     }
+    //   }
+    // );
 
     // Once we're initialized, start tracking users' cursors.
     this.on(FirebaseAdapterEvent.Ready, () => {
@@ -208,7 +201,6 @@ export class FirestoreAdapter implements IDatabaseAdapter {
     }
 
     this._removeFirebaseCallbacks();
-    this._databaseRef = null;
     this._firestoreUserRef = null;
     this._document = null;
     this._zombie = true;
@@ -416,7 +408,7 @@ export class FirestoreAdapter implements IDatabaseAdapter {
         // If a misbehaved client adds a bad operation, just ignore it.
         console.log(
           "Invalid operation.",
-          this._databaseRef!.toString(),
+          this._firestoreRef!.toString(),
           revisionId,
           pending[revisionId]
         );
