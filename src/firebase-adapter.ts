@@ -401,7 +401,19 @@ export class FirebaseAdapter implements IDatabaseAdapter {
           // We have an outstanding change at this revision id.
           if (
             this._sent.op.equals(revision.operation) &&
-            revision.author == this._userId
+            /** 
+             * Adding the OR revisionId === "A0" condition because when firepad is
+             * initialized, both clients call Firepad.setText method which results
+             * in an operation being created for the default editor content of both the
+             * clients. If default editor content is same because of any code stub or
+             * if we have set some default value in monaco editor, this leads to the
+             * same default code appearing twice. To fix this, we make an assumption that
+             * if the sent op is same as received op and if it's the first op (A0), then
+             * it was probably a code stub. This condition will not hold true if both the
+             * clients input the same character after being initialized on purpose and want
+             * that content to be replicated twice. This however seems unlikely.
+            */
+            (revision.author == this._userId || revisionId === "A0")
           ) {
             // This is our change; it succeeded.
             if (this._revision % FirebaseAdapter.CHECKPOINT_FREQUENCY === 0) {
