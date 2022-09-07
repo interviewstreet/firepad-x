@@ -18,6 +18,7 @@ import {
   TextOperation,
   TextOperationType,
 } from "./text-operation";
+import { ITextOp } from "./text-op";
 import * as Utils from "./utils";
 
 type FirebaseRefCallbackType = (
@@ -465,19 +466,19 @@ export class FirestoreAdapter implements IDatabaseAdapter {
    * @param revision - Revision with author and Operation information
    */
   protected _syncCursorForTypingEvents(revision: IRevision): void {
-    const author: string = revision.author;
-    const operations: Array<TextOperation> = revision.operation.getOps();
-    const firstOperation: TextOperation = operations[0];
-    const secondOperation: TextOperation = operations[1];
+    const author = revision.author;
+    const ops: ITextOp[] = revision.operation.getOps().slice(0, 2);
 
     let position = 0;
 
-    if (firstOperation?.isRetain()) {
-      position += firstOperation.chars;
-    }
+    for (const op of ops) {
+      if (op.isRetain()) {
+        position += op.chars!;
+      }
 
-    if (secondOperation?.isInsert()) {
-      position += secondOperation.text.length;
+      if (op.isInsert()) {
+        position += op.text!.length;
+      }
     }
 
     setTimeout(() => {
@@ -501,7 +502,7 @@ export class FirestoreAdapter implements IDatabaseAdapter {
       this._typingState.delete(author);
     }
 
-    const timerId: TimeoutID = setTimeout(() => {
+    const timerId = setTimeout(() => {
       /**
        * Unblock remote users for
        * 1. Code range Highlight events
