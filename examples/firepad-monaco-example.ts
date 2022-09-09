@@ -1,7 +1,7 @@
 import * as monaco from "monaco-editor";
-import firebase from "firebase/compat/app";
-import "firebase/compat/database";
-import "firebase/compat/firestore";
+import * as firebase from "firebase/app";
+import "firebase/database";
+import "firebase/firestore";
 
 import * as Firepad from "../src";
 
