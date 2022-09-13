@@ -1,7 +1,7 @@
 {
   "name": "@hackerrank/firepad",
   "description": "Collaborative text editing powered by Firebase",
-  "version": "0.5.3-alpha",
+  "version": "0.5.3-beta",
   "author": {
     "email": "bprogyan@gmail.com",
     "name": "Progyan Bhattacharya",
@@ -91,7 +91,7 @@
   },
   "scripts": {
     "prepare": "husky install",
-    "start": "webpack serve --hot --progress --mode development --port 9002 --host 0.0.0.0 --config configs/webpack.dev.config.js",
+    "start": "webpack serve --hot --progress --mode development --port 9000 --host 0.0.0.0 --config configs/webpack.dev.config.js",
     "start:prod": "webpack serve --hot --progress --mode production --port 9000 --host 0.0.0.0 --config configs/webpack.dev.config.js",
     "clean": "rimraf dist es lib types",
     "prebuild": "yarn clean",
