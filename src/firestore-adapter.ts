@@ -466,7 +466,7 @@ export class FirestoreAdapter implements IDatabaseAdapter {
    * @param revision - Revision with author and Operation information
    */
   protected _syncCursorForTypingEvents(revision: IRevision): void {
-    const author = revision.author;
+    const author = revision.author.toString();
     const ops: ITextOp[] = revision.operation.getOps().slice(0, 2);
 
     let position = 0;
@@ -486,7 +486,7 @@ export class FirestoreAdapter implements IDatabaseAdapter {
         return;
       }
 
-      const { color, name } = this._userColorMap.get(revision.author);
+      const { color, name } = this._userColorMap.get(author);
 
       this._trigger(
         FirebaseAdapterEvent.CursorChange,
@@ -742,7 +742,7 @@ export class FirestoreAdapter implements IDatabaseAdapter {
     firestoreUsersRef.onSnapshot((snapshot) => {
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added" || change.type === "modified") {
-          const userId = change.doc.id;
+          const userId = change.doc.id.toString();
           const userData = change.doc.data() as FirebaseCursorDataType;
           const {
             position: cPosition,
