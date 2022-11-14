@@ -564,11 +564,13 @@ export class FirestoreAdapter implements IDatabaseAdapter {
     revisionData: FirebaseOperationDataType,
     callback: SendOperationCallbackType
   ): void {
-    this._firestoreRef!.firestore.runTransaction(async (t) => {
-      t.set(
-        this._firestoreRef!.collection("history").doc(revisionId),
-        revisionData
-      );
+    this._firestoreRef!.firestore.runTransaction((t) => {
+      const docRef = this._firestoreRef!.collection("history").doc(revisionId);
+      return t.get(docRef).then((doc) => {
+        if (doc.data() == null) {
+          t.set(docRef, revisionData);
+        }
+      });
     })
       .then(() => {
         return callback(null, true);
