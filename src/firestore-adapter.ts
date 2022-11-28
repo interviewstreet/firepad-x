@@ -293,7 +293,12 @@ export class FirestoreAdapter implements IDatabaseAdapter {
           }
         }
 
-        if (hasCheckpoint) {
+        if (
+          hasCheckpoint &&
+          revisionId != null &&
+          author !== null &&
+          op != null
+        ) {
           this._pendingReceivedRevisions[revisionId] = { o: op, a: author };
           this._checkpointRevision = this._revisionFromId(revisionId);
           this._monitorHistoryStartingAt(this._checkpointRevision + 1);
