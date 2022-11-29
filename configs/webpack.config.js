@@ -36,6 +36,12 @@ module.exports = {
       commonjs2: "firebase/database",
       amd: "firebase/database",
     },
+    "firebase/firestore": {
+      root: "firebase/firestore",
+      commonjs: "firebase/firestore",
+      commonjs2: "firebase/firestore",
+      amd: "firebase/firestore",
+    }
   },
   module: {
     rules: [
