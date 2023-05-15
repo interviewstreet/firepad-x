@@ -50,7 +50,7 @@ export default class FirepadClassic implements IFirepad {
    * @param options - Firepad constructor options (optional).
    */
   constructor(
-    databaseRef: Firebase.database.Reference,
+    databaseRef: firebase.database.Reference,
     editor: monaco.editor.IStandaloneCodeEditor,
     options: IFirepadClassicConstructorOptions = {}
   ) {
@@ -224,7 +224,7 @@ export default class FirepadClassic implements IFirepad {
    * @param options - Firepad constructor options (optional).
    */
   static fromMonaco(
-    databaseRef: Firebase.database.Reference,
+    databaseRef: firebase.database.Reference,
     editor: monaco.editor.IStandaloneCodeEditor,
     options?: IFirepadClassicConstructorOptions
   ) {
