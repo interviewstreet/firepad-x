@@ -1,4 +1,4 @@
-import * as Firebase from "firebase";
+import firebase from "firebase";
 
 import * as monaco from "monaco-editor";
 
