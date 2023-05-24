@@ -1,5 +1,4 @@
 import * as monaco from "monaco-editor";
-
 import { Cursor, ICursor } from "./cursor";
 import {
   CursorWidgetController,
@@ -14,6 +13,7 @@ import {
   UndoRedoCallbackType,
 } from "./editor-adapter";
 import { EventEmitter, EventListenerType, IEventEmitter } from "./emitter";
+import { IMonacoEditorUtilsAdapter, NativeMonacoEditorUtils } from "./monaco-editor-utils";
 import { ITextOp } from "./text-op";
 import { ITextOperation, TextOperation } from "./text-operation";
 import * as Utils from "./utils";
@@ -34,7 +34,9 @@ export class MonacoAdapter implements IEditorAdapter {
   protected readonly _disposables: monaco.IDisposable[];
   protected readonly _remoteCursors: Map<ClientIDType, IRemoteCursor>;
   protected readonly _cursorWidgetController: ICursorWidgetController;
+  protected readonly _editorUtils: IMonacoEditorUtilsAdapter;
 
+  protected _isDisabled: boolean = false;
   protected _ignoreChanges: boolean;
   protected _lastDocLines: string[];
   protected _lastCursorRange: monaco.Selection | null;
@@ -44,6 +46,15 @@ export class MonacoAdapter implements IEditorAdapter {
   protected _originalUndo: UndoRedoCallbackType | null;
   protected _originalRedo: UndoRedoCallbackType | null;
   protected _initiated: boolean;
+  protected operationsToBeApplied: ITextOperation[] = [];
+
+  protected beforeApplyChangesCallbacks: ((
+    changes: monaco.editor.IIdentifiedSingleEditOperation[]
+  ) => void)[] = [];
+
+  protected afterApplyChangesCallbacks: ((
+    changes: monaco.editor.IIdentifiedSingleEditOperation[]
+  ) => void)[] = [];
 
   /**
    * Wraps a monaco editor in adapter to work with rest of Firepad
@@ -52,7 +63,8 @@ export class MonacoAdapter implements IEditorAdapter {
    */
   constructor(
     monacoInstance: monaco.editor.IStandaloneCodeEditor,
-    avoidListeners: boolean = true
+    avoidListeners: boolean = true,
+    editorUtils: IMonacoEditorUtilsAdapter = new NativeMonacoEditorUtils()
   ) {
     this._classNames = [];
     this._disposables = [];
@@ -60,7 +72,8 @@ export class MonacoAdapter implements IEditorAdapter {
     this._lastDocLines = this._monaco.getModel()?.getLinesContent() || [""];
     this._lastCursorRange = this._monaco.getSelection();
     this._remoteCursors = new Map<ClientIDType, IRemoteCursor>();
-    this._cursorWidgetController = new CursorWidgetController(this._monaco);
+    this._editorUtils = editorUtils;
+    this._cursorWidgetController = new CursorWidgetController(this._monaco, editorUtils);
 
     this._redoCallback = null;
     this._undoCallback = null;
@@ -84,6 +97,20 @@ export class MonacoAdapter implements IEditorAdapter {
       EditorAdapterEvent.Undo,
     ]);
 
+    this._initMonacoEvents();
+  }
+
+  public enable() {
+    this._isDisabled = false;
+    this._ignoreChanges = false;
+    this._initMonacoEvents();
+    this.operationsToBeApplied.forEach((operation) => {
+      this.applyOperation(operation);
+    });
+    this.operationsToBeApplied = [];
+  }
+
+  private _initMonacoEvents() {
     this._disposables.push(
       this._cursorWidgetController,
       this._monaco.onDidBlurEditorWidget(() => {
@@ -106,6 +133,25 @@ export class MonacoAdapter implements IEditorAdapter {
         }
       )
     );
+  }
+
+  public disable() {
+    this._isDisabled = true;
+    this._ignoreChanges = true;
+    this._disposables.forEach((disposable) => disposable.dispose());
+    this._disposables.splice(0, this._disposables.length);
+  }
+
+  public beforeApplyChanges(
+    callback: (changes: monaco.editor.IIdentifiedSingleEditOperation[]) => void
+  ): void {
+    this.beforeApplyChangesCallbacks.push(callback);
+  }
+
+  public afterApplyChanges(
+    callback: (changes: monaco.editor.IIdentifiedSingleEditOperation[]) => void
+  ): void {
+    this.afterApplyChangesCallbacks.push(callback);
   }
 
   dispose(): void {
@@ -244,7 +290,7 @@ export class MonacoAdapter implements IEditorAdapter {
 
     /** Create Selection in the Editor */
     this._monaco.setSelection(
-      new monaco.Range(
+      new this._editorUtils.Range(
         start.lineNumber,
         start.column,
         end.lineNumber,
@@ -320,7 +366,7 @@ export class MonacoAdapter implements IEditorAdapter {
     }
 
     /** Find Range of Selection */
-    const range = new monaco.Range(
+    const range = new this._editorUtils.Range(
       start.lineNumber,
       start.column,
       end.lineNumber,
@@ -337,7 +383,7 @@ export class MonacoAdapter implements IEditorAdapter {
             className,
             isWholeLine: false,
             stickiness:
-              monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+              this._editorUtils.getTrackedRangeStickiness('NeverGrowsWhenTypingAtEdges'),
           },
         },
       ]
@@ -464,7 +510,7 @@ export class MonacoAdapter implements IEditorAdapter {
         /** Insert Operation */
         const pos = model.getPositionAt(index);
         changes.push({
-          range: new monaco.Range(
+          range: new this._editorUtils.Range(
             pos.lineNumber,
             pos.column,
             pos.lineNumber,
@@ -482,7 +528,7 @@ export class MonacoAdapter implements IEditorAdapter {
         const to = model.getPositionAt(index + op.chars!);
 
         changes.push({
-          range: new monaco.Range(
+          range: new this._editorUtils.Range(
             from.lineNumber,
             from.column,
             to.lineNumber,
@@ -513,7 +559,7 @@ export class MonacoAdapter implements IEditorAdapter {
       ({ readOnly } = this._monaco.getConfiguration());
     } else {
       // @ts-ignore - Remove this after monaco upgrade
-      readOnly = this._monaco.getOption(monaco.editor.EditorOption.readOnly);
+      readOnly = this._monaco.getOption(this._editorUtils.getEditorOption('readOnly'));
     }
 
     if (readOnly) {
@@ -527,7 +573,12 @@ export class MonacoAdapter implements IEditorAdapter {
     }
   }
 
-  applyOperation(operation: ITextOperation): void {
+  applyOperation(operation: ITextOperation) {
+    if (this._isDisabled) {
+      this.operationsToBeApplied.push(operation);
+      return;
+    }
+
     if (!operation.isNoop()) {
       this._ignoreChanges = true;
     }
@@ -543,6 +594,8 @@ export class MonacoAdapter implements IEditorAdapter {
       model
     );
 
+    this.beforeApplyChangesCallbacks.forEach((cb) => cb(changes))
+
     /** Changes exists to be applied */
     if (changes.length) {
       this._applyChangesToMonaco(changes);
@@ -554,6 +607,8 @@ export class MonacoAdapter implements IEditorAdapter {
     }
 
     this._ignoreChanges = false;
+
+    this.afterApplyChangesCallbacks.forEach((cb) => cb(changes))
   }
 
   invertOperation(operation: ITextOperation): ITextOperation {
@@ -575,7 +630,7 @@ export class MonacoAdapter implements IEditorAdapter {
   protected _onCursorActivity(
     ev: monaco.editor.ICursorPositionChangedEvent
   ): void {
-    if (ev.reason === monaco.editor.CursorChangeReason.RecoverFromMarkers) {
+    if (ev.reason === this._editorUtils.getCursorChangeReason('RecoverFromMarkers')) {
       return;
     }
 
@@ -613,6 +668,10 @@ export class MonacoAdapter implements IEditorAdapter {
   }
 
   protected _onModelChange(_ev: monaco.editor.IModelChangedEvent): void {
+    if (this._isDisabled) {
+      return;
+    }
+
     const newModel = this._getModel();
 
     if (!newModel) {
@@ -631,7 +690,7 @@ export class MonacoAdapter implements IEditorAdapter {
 
     const oldLinesCount = this._lastDocLines.length;
     const oldLastColumLength = this._lastDocLines[oldLinesCount - 1].length;
-    const oldRange = new monaco.Range(
+    const oldRange = new this._editorUtils.Range(
       1,
       1,
       oldLinesCount,

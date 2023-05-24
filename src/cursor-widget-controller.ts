@@ -2,6 +2,7 @@ import * as monaco from "monaco-editor";
 
 import { CursorWidget, ICursorWidget } from "./cursor-widget";
 import { ClientIDType } from "./editor-adapter";
+import { IMonacoEditorUtilsAdapter } from "./monaco-editor-utils";
 import { IDisposable } from "./utils";
 
 export interface ICursorWidgetController extends IDisposable {
@@ -42,11 +43,13 @@ export class CursorWidgetController implements ICursorWidgetController {
   protected readonly _cursors: Map<ClientIDType, ICursorWidget>;
   protected readonly _editor: monaco.editor.IStandaloneCodeEditor;
   protected readonly _tooltipDuration: number;
+  protected readonly _editorUtils: IMonacoEditorUtilsAdapter;
 
-  constructor(editor: monaco.editor.IStandaloneCodeEditor) {
+  constructor(editor: monaco.editor.IStandaloneCodeEditor, editorUtils: IMonacoEditorUtilsAdapter) {
     this._editor = editor;
     this._tooltipDuration = 1000;
     this._cursors = new Map<ClientIDType, ICursorWidget>();
+    this._editorUtils = editorUtils;
   }
 
   addCursor(
@@ -62,6 +65,7 @@ export class CursorWidgetController implements ICursorWidgetController {
       range,
       label: userName || clientId.toString(),
       tooltipDuration: this._tooltipDuration,
+      editorUtils: this._editorUtils,
       onDisposed: () => {
         this.removeCursor(clientId);
       },

@@ -21,6 +21,18 @@ Tags:
 Good to have: commit or PR links.
 
 -->
+## v0.5.2-beta [#56](https://github.com/interviewstreet/firepad-x/pull/56)
+
+### Changed
+
+- Added MonacoEditorUtilAdapter to support native monaco and monaco from vscode
+
+## v0.4.2-beta [#55](https://github.com/interviewstreet/firepad-x/pull/55)
+
+### Changed
+
+- Added `Firepd.enable()` and `Firepad.disable()` API methods for enbling and disabling firepad without disposing.
+- No breaking changes on the API level.
 
 ## v0.4.1-beta
 
@@ -30,11 +42,11 @@ No Changes
 
 ### Changed
 
-- Fix a bug monaco-adapter/_operationFromMonacoChange function
+- Fix a bug monaco-adapter/\_operationFromMonacoChange function
 - Revert https://github.com/interviewstreet/firepad-x/commit/2aebf79871d3fc9bf21e9b056a0faa60c6da0b3a
 - Revert https://github.com/interviewstreet/firepad-x/commit/a12177892c692b44c106d60f2819fbf7f1094f22
 - No breaking change on external APIs.
-- Revert to firebase v7.12.0 (https://github.com/interviewstreet/firepad-x/commit/03910ce475e04ddcab2e683877f579bfcbd32d91). 
+- Revert to firebase v7.12.0 (https://github.com/interviewstreet/firepad-x/commit/03910ce475e04ddcab2e683877f579bfcbd32d91).
 
 ## v0.3.1 [#44](https://github.com/interviewstreet/firepad-x/pull/44)
 

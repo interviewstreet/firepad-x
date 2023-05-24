@@ -6,6 +6,7 @@ import { IDatabaseAdapter, UserIDType } from "./database-adapter";
 import { FirebaseAdapter } from "./firebase-adapter";
 import { Firepad, IFirepad, IFirepadConstructorOptions } from "./firepad";
 import { MonacoAdapter } from "./monaco-adapter";
+import { IMonacoEditorUtilsAdapter, NativeMonacoEditorUtils } from "./monaco-editor-utils";
 import * as Utils from "./utils";
 import { FirestoreAdapter } from "./firestore-adapter";
 
@@ -18,7 +19,8 @@ import { FirestoreAdapter } from "./firestore-adapter";
 export function fromMonacoWithFirebase(
   databaseRef: string | firebase.database.Reference,
   editor: monaco.editor.IStandaloneCodeEditor,
-  options: Partial<IFirepadConstructorOptions> = {}
+  options: Partial<IFirepadConstructorOptions> = {},
+  editorUtils: IMonacoEditorUtilsAdapter = new NativeMonacoEditorUtils()
 ): IFirepad {
   // Initialize constructor options with their default values
   const userId: UserIDType = options.userId || uuid();
@@ -34,7 +36,7 @@ export function fromMonacoWithFirebase(
     userName
   );
 
-  const editorAdapter = new MonacoAdapter(editor, false);
+  const editorAdapter = new MonacoAdapter(editor, false, editorUtils);
   return new Firepad(databaseAdapter, editorAdapter, {
     userId,
     userName,
