@@ -255,25 +255,29 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    */
   protected _monitorHistory(): void {
     // Get the latest checkpoint as a starting point so we don't have to re-play entire history.
-    this._databaseRef!.child("checkpoint").once("value", (snapshot) => {
-      if (this._zombie) {
-        // just in case we were cleaned up before we got the checkpoint data.
-        return;
-      }
+    this._databaseRef!.child("checkpoint")
+      .once("value", (snapshot) => {
+        if (this._zombie) {
+          // just in case we were cleaned up before we got the checkpoint data.
+          return;
+        }
 
-      const revisionId: string | null = snapshot.child("id").val();
-      const op: TextOperationType | null = snapshot.child("o").val();
-      const author: UserIDType | null = snapshot.child("a").val();
+        const revisionId: string | null = snapshot.child("id").val();
+        const op: TextOperationType | null = snapshot.child("o").val();
+        const author: UserIDType | null = snapshot.child("a").val();
 
-      if (op != null && revisionId != null && author !== null) {
-        this._pendingReceivedRevisions[revisionId] = { o: op, a: author };
-        this._checkpointRevision = this._revisionFromId(revisionId);
-        this._monitorHistoryStartingAt(this._checkpointRevision + 1);
-      } else {
-        this._checkpointRevision = 0;
-        this._monitorHistoryStartingAt(this._checkpointRevision);
-      }
-    });
+        if (op != null && revisionId != null && author !== null) {
+          this._pendingReceivedRevisions[revisionId] = { o: op, a: author };
+          this._checkpointRevision = this._revisionFromId(revisionId);
+          this._monitorHistoryStartingAt(this._checkpointRevision + 1);
+        } else {
+          this._checkpointRevision = 0;
+          this._monitorHistoryStartingAt(this._checkpointRevision);
+        }
+      })
+      .catch((err) => {
+        console.error("[firebase] Error getting checkpoint", err);
+      });
   }
 
   /**
@@ -305,9 +309,13 @@ export class FirebaseAdapter implements IDatabaseAdapter {
 
     this._firebaseOn(historyRef, "child_added", this._historyChildAdded, this);
 
-    historyRef.once("value", () => {
-      this._handleInitialRevisions();
-    });
+    historyRef
+      .once("value", () => {
+        this._handleInitialRevisions();
+      })
+      .catch((err) => {
+        console.error("[firebase] Error getting initial revisions", err);
+      });
   }
 
   /**
@@ -479,43 +487,52 @@ export class FirebaseAdapter implements IDatabaseAdapter {
     revisionData: FirebaseOperationDataType,
     callback: SendOperationCallbackType
   ): void {
-    this._databaseRef!.child("history")
-      .child(revisionId)
-      .transaction(
-        (current) => {
-          if (current === null) {
-            return revisionData;
-          }
-        },
-        (error, committed) => {
-          if (error) {
-            if (error.message === "disconnect") {
-              if (this._sent && this._sent.id === revisionId) {
-                // We haven't seen our transaction succeed or fail.  Send it again.
-                setTimeout(() => {
-                  this._doTransaction(revisionId, revisionData, callback);
-                });
-              }
-
-              return callback(error, false);
-            } else {
-              this._trigger(
-                FirebaseAdapterEvent.Error,
-                error,
-                revisionData.o.toString(),
-                {
-                  operation: revisionData.o.toString(),
-                  document: this._document!.toString(),
-                }
-              );
-              Utils.onFailedDatabaseTransaction(error.message);
+    try {
+      this._databaseRef!.child("history")
+        .child(revisionId)
+        .transaction(
+          (current) => {
+            if (current === null) {
+              return revisionData;
             }
-          }
+          },
+          (error, committed) => {
+            console.error("[firebase] Transaction error - onComplete", error);
 
-          return callback(null, committed);
-        },
-        false
-      );
+            if (error) {
+              if (error.message === "disconnect") {
+                if (this._sent && this._sent.id === revisionId) {
+                  // We haven't seen our transaction succeed or fail.  Send it again.
+                  setTimeout(() => {
+                    this._doTransaction(revisionId, revisionData, callback);
+                  });
+                }
+
+                return callback(error, false);
+              } else {
+                this._trigger(
+                  FirebaseAdapterEvent.Error,
+                  error,
+                  revisionData.o.toString(),
+                  {
+                    operation: revisionData.o.toString(),
+                    document: this._document!.toString(),
+                  }
+                );
+                Utils.onFailedDatabaseTransaction(error.message);
+              }
+            }
+
+            return callback(null, committed);
+          },
+          false
+        )
+        .catch((error) => {
+          console.error("[firebase] Transaction error - catch()", error);
+        });
+    } catch (error) {
+      console.error("[firebase] Transaction error - trycatch", error);
+    }
   }
 
   /**
@@ -550,12 +567,16 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    * Updates current document state into `checkpoint` node in Firebase.
    */
   protected _saveCheckpoint(): void {
-    this._databaseRef!.child("checkpoint").set({
-      a: this._userId,
-      o: this._document!.toJSON(),
-      // use the id for the revision we just wrote.
-      id: this._revisionToId(this._revision - 1),
-    });
+    this._databaseRef!.child("checkpoint")
+      .set({
+        a: this._userId,
+        o: this._document!.toJSON(),
+        // use the id for the revision we just wrote.
+        id: this._revisionToId(this._revision - 1),
+      })
+      .catch((err) => {
+        console.error("[firebase] Error saving checkpoint", err);
+      });
   }
 
   isHistoryEmpty(): boolean {
