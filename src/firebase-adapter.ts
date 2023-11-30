@@ -497,9 +497,9 @@ export class FirebaseAdapter implements IDatabaseAdapter {
             }
           },
           (error, committed) => {
-            console.error("[firebase] Transaction error - onComplete", error);
-
             if (error) {
+              console.error("[firebase] Transaction error - onComplete", error);
+
               if (error.message === "disconnect") {
                 if (this._sent && this._sent.id === revisionId) {
                   // We haven't seen our transaction succeed or fail.  Send it again.
