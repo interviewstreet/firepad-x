@@ -1,7 +1,7 @@
 {
   "name": "@hackerrank/firepad",
   "description": "Collaborative text editing powered by Firebase",
-  "version": "0.8.3-beta",
+  "version": "0.8.4-beta",
   "author": {
     "email": "bprogyan@gmail.com",
     "name": "Progyan Bhattacharya",
