@@ -1,7 +1,7 @@
 {
   "name": "@hackerrank/firepad",
   "description": "Collaborative text editing powered by Firebase",
-  "version": "0.8.4-beta",
+  "version": "0.8.4-dev-1",
   "author": {
     "email": "bprogyan@gmail.com",
     "name": "Progyan Bhattacharya",
@@ -40,11 +40,12 @@
     "collaborative"
   ],
   "main": "dist/firepad.min.js",
-  "module": "es/index.js",
+  "module": "lib/index.js",
   "types": "types",
   "files": [
     "dist/**",
     "es/**",
+    "lib/**",
     "types/**",
     "LICENSE",
     "package.json",

@@ -398,7 +398,7 @@ export class MonacoAdapter implements IEditorAdapter {
 
   setInitiated(init: boolean): void {
     // Perfomance boost on clearing editor after network calls (do not directly setValue or EOL will get reset and break sync)
-    this.setText("");
+    console.log('this.setText("");');
     this._initiated = init;
   }
 
