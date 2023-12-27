@@ -53,6 +53,7 @@ const init = function (): void {
   });
 
   const firepad = Firepad.fromMonacoWithFirebase(firebaseRef, editor, {
+    questionId: "test-question-id",
     userName: `Anonymous ${Math.floor(Math.random() * 100)}`,
     defaultText: `// typescript Editing with Firepad!
 function go() {

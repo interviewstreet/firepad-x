@@ -32,6 +32,8 @@ export interface IFirepadConstructorOptions {
   userName?: string;
   /** Default content of Firepad (optional) */
   defaultText?: string;
+  /** TODO: remove this, only for debugging purpose */
+  questionId?: string;
 }
 
 export interface IFirepad extends Utils.IDisposable {
