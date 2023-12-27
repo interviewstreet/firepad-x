@@ -309,7 +309,8 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    * @param revision - Intial revision to start monitoring from.
    */
   protected _monitorHistoryStartingAt(revision: number): void {
-    console.log(`[firepad] _monitorHistoryStartingAt ${revision}`, {
+    console.log(`[firepad] _monitorHistoryStartingAt`, {
+      revision,
       timestamp: Date.now(),
     });
 
@@ -360,7 +361,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
 
     console.log(`[firepad] _handleInitialRevisions pending`, {
       revisionId,
-      pending,
+      pending: Object.assign({}, pending),
       timestamp: Date.now(),
     });
 
@@ -411,7 +412,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
 
     console.log(`[firepad] _handlePendingReceivedRevisions`, {
       revisionId,
-      pending,
+      pending: Object.assign({}, pending),
       timestamp: Date.now(),
     });
 
@@ -472,7 +473,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
 
     console.log(`[firepad] _handlePendingReceivedRevisions complete`, {
       revision: this._revision,
-      pending: this._pendingReceivedRevisions,
+      pending: Object.assign({}, this._pendingReceivedRevisions),
       timestamp: Date.now(),
     });
 
