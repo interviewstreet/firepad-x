@@ -501,6 +501,12 @@ export class FirebaseAdapter implements IDatabaseAdapter {
     operation: TextOperation,
     callback: SendOperationCallbackType = Utils.noop
   ): void {
+    console.trace(`[firepad] ${this._questionId} sendOperation`, {
+      ready: this._ready,
+      operation,
+      timestamp: Date.now(),
+    });
+
     // If we're not ready yet, do nothing right now, and trigger a retry when we're ready.
     if (!this._ready) {
       this.on(FirebaseAdapterEvent.Ready, () => {
@@ -528,6 +534,11 @@ export class FirebaseAdapter implements IDatabaseAdapter {
       o: operation.toJSON(),
       t: firebase.database.ServerValue.TIMESTAMP as number,
     };
+
+    console.log(`[firepad] ${this._questionId} sendOperation revisionData`, {
+      revisionData,
+      timestamp: Date.now(),
+    });
 
     this._doTransaction(revisionId, revisionData, callback);
   }
