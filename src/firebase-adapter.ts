@@ -349,13 +349,13 @@ export class FirebaseAdapter implements IDatabaseAdapter {
     Utils.validateFalse(this._ready, "Should not be called multiple times.");
 
     if (!this._initialRevisions) {
-      this._initialRevisions = true;
-      this._trigger(FirebaseAdapterEvent.InitialRevision);
-
       console.log(
-        `[firepad] ${this._questionId} _handleInitialRevisions FirebaseAdapterEvent.InitialRevision`,
+        `[firepad] ${this._questionId} _handleInitialRevisions trigger() FirebaseAdapterEvent.InitialRevision`,
         { timestamp: Date.now() }
       );
+
+      this._initialRevisions = true;
+      this._trigger(FirebaseAdapterEvent.InitialRevision);
     }
 
     // Compose the checkpoint and all subsequent revisions into a single operation to apply at once.

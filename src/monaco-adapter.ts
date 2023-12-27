@@ -388,6 +388,13 @@ export class MonacoAdapter implements IEditorAdapter {
       return;
     }
 
+    console.log(`[firepad] setText`, {
+      range: model.getFullModelRange(),
+      newText: text,
+      oldText: model.getValue(),
+      timestamp: Date.now(),
+    });
+
     model.applyEdits([
       {
         range: model.getFullModelRange(),
