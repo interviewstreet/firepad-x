@@ -184,6 +184,8 @@ export class FirebaseAdapter implements IDatabaseAdapter {
   }
 
   dispose(): void {
+    this._zombie = true;
+
     if (!this._ready) {
       this.on(FirebaseAdapterEvent.Ready, () => {
         this.dispose();
@@ -200,7 +202,6 @@ export class FirebaseAdapter implements IDatabaseAdapter {
     this._databaseRef = null;
     this._userRef = null;
     this._document = null;
-    this._zombie = true;
   }
 
   getDocument(): ITextOperation | null {
