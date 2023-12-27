@@ -292,6 +292,13 @@ export class FirebaseAdapter implements IDatabaseAdapter {
       revisionId
     ] = revisionSnapshot.val() as RevisionType;
 
+    console.log(`[firepad] _historyChildAdded`, {
+      revisionId,
+      snapshot: revisionSnapshot.val(),
+      ready: this._ready,
+      timestamp: Date.now(),
+    });
+
     if (this._ready) {
       this._handlePendingReceivedRevisions();
     }
@@ -302,6 +309,10 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    * @param revision - Intial revision to start monitoring from.
    */
   protected _monitorHistoryStartingAt(revision: number): void {
+    console.log(`[firepad] _monitorHistoryStartingAt ${revision}`, {
+      timestamp: Date.now(),
+    });
+
     const historyRef = this._databaseRef!.child("history").startAt(
       null,
       this._revisionToId(revision)
@@ -327,11 +338,18 @@ export class FirebaseAdapter implements IDatabaseAdapter {
       return;
     }
 
+    console.log(`[firepad] _handleInitialRevisions`, { timestamp: Date.now() });
+
     Utils.validateFalse(this._ready, "Should not be called multiple times.");
 
     if (!this._initialRevisions) {
       this._initialRevisions = true;
       this._trigger(FirebaseAdapterEvent.InitialRevision);
+
+      console.log(
+        `[firepad] _handleInitialRevisions FirebaseAdapterEvent.InitialRevision`,
+        { timestamp: Date.now() }
+      );
     }
 
     // Compose the checkpoint and all subsequent revisions into a single operation to apply at once.
@@ -339,6 +357,12 @@ export class FirebaseAdapter implements IDatabaseAdapter {
 
     let revisionId = this._revisionToId(this._revision);
     const pending = this._pendingReceivedRevisions;
+
+    console.log(`[firepad] _handleInitialRevisions pending`, {
+      revisionId,
+      pending,
+      timestamp: Date.now(),
+    });
 
     while (pending[revisionId] != null) {
       const revision: IRevision | null = this._parseRevision(
@@ -366,6 +390,11 @@ export class FirebaseAdapter implements IDatabaseAdapter {
     this._trigger(FirebaseAdapterEvent.Operation, this._document!);
     this._ready = true;
 
+    console.log(`[firepad] _handleInitialRevisions ready`, {
+      ready: this._ready,
+      timestamp: Date.now(),
+    });
+
     setTimeout(() => {
       this._trigger(FirebaseAdapterEvent.Ready, true);
     });
@@ -379,6 +408,12 @@ export class FirebaseAdapter implements IDatabaseAdapter {
 
     let revisionId = this._revisionToId(this._revision);
     let triggerRetry = false;
+
+    console.log(`[firepad] _handlePendingReceivedRevisions`, {
+      revisionId,
+      pending,
+      timestamp: Date.now(),
+    });
 
     while (pending[revisionId] != null) {
       this._revision++;
@@ -434,6 +469,12 @@ export class FirebaseAdapter implements IDatabaseAdapter {
 
       revisionId = this._revisionToId(this._revision);
     }
+
+    console.log(`[firepad] _handlePendingReceivedRevisions complete`, {
+      revision: this._revision,
+      pending: this._pendingReceivedRevisions,
+      timestamp: Date.now(),
+    });
 
     if (triggerRetry) {
       this._sent = null;
