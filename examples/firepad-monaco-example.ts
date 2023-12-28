@@ -52,8 +52,7 @@ const init = function (): void {
     trimAutoWhitespace: false,
   });
 
-  const firepad = Firepad.fromMonacoWithFirebase(firebaseRef, editor, {
-    questionId: "test-question-id",
+  const firepad = Firepad.fromMonacoWithFirestore(firestoreRef, editor, {
     userName: `Anonymous ${Math.floor(Math.random() * 100)}`,
     defaultText: `// typescript Editing with Firepad!
 function go() {

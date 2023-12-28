@@ -26,14 +26,12 @@ export function fromMonacoWithFirebase(
     options.userColor || Utils.colorFromUserId(userId.toString());
   const userName: string = options.userName || userId.toString();
   const defaultText: string = options.defaultText || editor.getValue();
-  const questionId: string = options.questionId || "";
 
   let databaseAdapter: IDatabaseAdapter = new FirebaseAdapter(
     databaseRef,
     userId,
     userColor,
-    userName,
-    questionId
+    userName
   );
 
   const editorAdapter = new MonacoAdapter(editor, false);

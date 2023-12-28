@@ -78,8 +78,7 @@ export default class FirepadClassic implements IFirepad {
       databaseRef,
       options.userId!,
       options.userColor!,
-      options.userName!,
-      ""
+      options.userName!
     );
     this._editorAdapter = new MonacoAdapter(editor, false);
     this._editorClient = new EditorClient(
