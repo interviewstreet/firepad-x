@@ -1,6 +1,25 @@
-import "firebase/database";
-
-import * as firebase from "firebase/app";
+import {
+  DataSnapshot,
+  DatabaseReference,
+  EventType,
+  Query,
+  child,
+  getDatabase,
+  off,
+  onChildAdded,
+  onChildChanged,
+  onChildMoved,
+  onChildRemoved,
+  onDisconnect,
+  onValue,
+  query,
+  ref,
+  remove,
+  runTransaction,
+  serverTimestamp,
+  set,
+  startAt,
+} from "firebase/database";
 
 import { CursorType, ICursor } from "./cursor";
 import {
@@ -21,12 +40,12 @@ import {
 import * as Utils from "./utils";
 
 type FirebaseRefCallbackType = (
-  snapshot: firebase.database.DataSnapshot
+  snapshot: DataSnapshot
 ) => void;
 
 type FirebaseRefCallbackHookType = {
-  ref: firebase.database.Reference | firebase.database.Query;
-  eventType: firebase.database.EventType;
+  ref: DatabaseReference | Query;
+  eventType: EventType;
   callback: FirebaseRefCallbackType;
   context?: ThisType<FirebaseAdapter>;
 };
@@ -92,8 +111,8 @@ export class FirebaseAdapter implements IDatabaseAdapter {
   protected _pendingReceivedRevisions: RevisionHistoryType;
   protected _emitter: IEventEmitter | null;
   protected _document: ITextOperation | null;
-  protected _userRef: firebase.database.Reference | null;
-  protected _databaseRef: firebase.database.Reference | null;
+  protected _userRef: DatabaseReference | null;
+  protected _databaseRef: DatabaseReference | null;
   protected _firebaseCallbacks: FirebaseRefCallbackHookType[];
 
   /** Frequency of Text Operation to mark as checkpoint */
@@ -107,13 +126,13 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    * @param userName - Name of the Cursor of the User
    */
   constructor(
-    databaseRef: string | firebase.database.Reference,
+    databaseRef: string | DatabaseReference,
     userId: number | string,
     userColor: string,
     userName: string
   ) {
     if (typeof databaseRef !== "object") {
-      databaseRef = firebase.database().ref(databaseRef);
+      databaseRef = ref(getDatabase(), databaseRef);
     }
 
     // Add Database Ref and states
@@ -165,12 +184,12 @@ export class FirebaseAdapter implements IDatabaseAdapter {
   }
 
   protected _init(): void {
-    const connectedRef = this._databaseRef!.root.child(".info/connected");
+    const connectedRef = child(this._databaseRef!.root, ".info/connected");
 
     this._firebaseOn(
       connectedRef,
       "value",
-      (snapshot: firebase.database.DataSnapshot) => {
+      (snapshot: DataSnapshot) => {
         if (snapshot.val() === true) {
           this._initializeUserData();
         }
@@ -251,9 +270,9 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    * Setup user indicator data and hooks in `users` node in Firebase ref.
    */
   protected _initializeUserData(): void {
-    this._userRef!.child("cursor").onDisconnect().remove();
-    this._userRef!.child("color").onDisconnect().remove();
-    this._userRef!.child("name").onDisconnect().remove();
+    onDisconnect(child(this._userRef!, "cursor")).remove();
+    onDisconnect(child(this._userRef!, "color")).remove();
+    onDisconnect(child(this._userRef!, "name")).remove();
 
     this.sendCursor(this._userCursor || null);
   }
@@ -263,7 +282,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    */
   protected _monitorHistory(): void {
     // Get the latest checkpoint as a starting point so we don't have to re-play entire history.
-    this._databaseRef!.child("checkpoint").once("value", (snapshot) => {
+    onValue(child(this._databaseRef!, "checkpoint"), (snapshot) => {
       if (this._zombie) {
         // just in case we were cleaned up before we got the checkpoint data.
         return;
@@ -281,6 +300,9 @@ export class FirebaseAdapter implements IDatabaseAdapter {
         this._checkpointRevision = 0;
         this._monitorHistoryStartingAt(this._checkpointRevision);
       }
+    },
+    {
+      onlyOnce: true,
     });
   }
 
@@ -289,7 +311,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    * @param revisionSnapshot - JSON serializable data snapshot of the child.
    */
   protected _historyChildAdded(
-    revisionSnapshot: firebase.database.DataSnapshot
+    revisionSnapshot: DataSnapshot
   ): void {
     const revisionId: string = revisionSnapshot.key as string;
     this._pendingReceivedRevisions[
@@ -306,15 +328,17 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    * @param revision - Intial revision to start monitoring from.
    */
   protected _monitorHistoryStartingAt(revision: number): void {
-    const historyRef = this._databaseRef!.child("history").startAt(
+    const historyRef = query(child(this._databaseRef!, "history"), startAt(
       null,
       this._revisionToId(revision)
-    );
+    ));
 
     this._firebaseOn(historyRef, "child_added", this._historyChildAdded, this);
 
-    historyRef.once("value", () => {
+    onValue(historyRef, () => {
       this._handleInitialRevisions();
+    }, {
+      onlyOnce: true,
     });
   }
 
@@ -470,7 +494,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
     const revisionData: FirebaseOperationDataType = {
       a: this._userId!,
       o: operation.toJSON(),
-      t: firebase.database.ServerValue.TIMESTAMP as number,
+      t: (serverTimestamp() as unknown) as number,
     };
 
     this._doTransaction(revisionId, revisionData, callback);
@@ -487,43 +511,43 @@ export class FirebaseAdapter implements IDatabaseAdapter {
     revisionData: FirebaseOperationDataType,
     callback: SendOperationCallbackType
   ): void {
-    this._databaseRef!.child("history")
-      .child(revisionId)
-      .transaction(
-        (current) => {
-          if (current === null) {
-            return revisionData;
+    runTransaction(
+      child(child(this._databaseRef!, "history"), revisionId),
+      (current) => {
+        if (current === null) {
+          return revisionData;
+        }
+      },
+      {
+        applyLocally: false,
+      }
+    )
+      .then(({ committed }) => {
+        return callback(null, committed);
+      })
+      .catch((error) => {
+        if (error.message === "disconnect") {
+          if (this._sent && this._sent.id === revisionId) {
+            // We haven't seen our transaction succeed or fail.  Send it again.
+            setTimeout(() => {
+              this._doTransaction(revisionId, revisionData, callback);
+            });
           }
-        },
-        (error, committed) => {
-          if (error) {
-            if (error.message === "disconnect") {
-              if (this._sent && this._sent.id === revisionId) {
-                // We haven't seen our transaction succeed or fail.  Send it again.
-                setTimeout(() => {
-                  this._doTransaction(revisionId, revisionData, callback);
-                });
-              }
 
-              return callback(error, false);
-            } else {
-              this._trigger(
-                FirebaseAdapterEvent.Error,
-                error,
-                revisionData.o.toString(),
-                {
-                  operation: revisionData.o.toString(),
-                  document: this._document!.toString(),
-                }
-              );
-              Utils.onFailedDatabaseTransaction(error.message);
+          return callback(error, false);
+        } else {
+          this._trigger(
+            FirebaseAdapterEvent.Error, 
+            error, 
+            revisionData.o.toString(), 
+            {
+              operation: revisionData.o.toString(),
+              document: this._document!.toString(),
             }
-          }
-
-          return callback(null, committed);
-        },
-        false
-      );
+          );
+          Utils.onFailedDatabaseTransaction(error.message);
+        }
+      });
   }
 
   /**
@@ -558,7 +582,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    * Updates current document state into `checkpoint` node in Firebase.
    */
   protected _saveCheckpoint(): void {
-    this._databaseRef!.child("checkpoint").set({
+    set(child(this._databaseRef!, "checkpoint"), {
       a: this._userId,
       o: this._document!.toJSON(),
       // use the id for the revision we just wrote.
@@ -580,15 +604,15 @@ export class FirebaseAdapter implements IDatabaseAdapter {
     if (this._userRef) {
       // Clean up existing data.  Avoid nuking another user's data
       // (if a future user takes our old name).
-      this._userRef.child("cursor").remove();
-      this._userRef.child("cursor").onDisconnect().cancel();
-      this._userRef.child("color").remove();
-      this._userRef.child("color").onDisconnect().cancel();
+      remove(child(this._userRef, "cursor"));
+      onDisconnect(child(this._userRef, "cursor")).cancel();
+      remove(child(this._userRef, "color"));
+      onDisconnect(child(this._userRef, "color")).cancel();
       this._userRef = null;
     }
 
     this._userId = userId;
-    this._userRef = this._databaseRef!.child("users").child(userId.toString());
+    this._userRef = child(child(this._databaseRef!, "users"), userId.toString());
 
     this._initializeUserData();
   }
@@ -603,7 +627,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
       return;
     }
 
-    this._userRef.child("color").set(userColor);
+    set(child(this._userRef, "color"), userColor);
     this._userColor = userColor;
   }
 
@@ -616,8 +640,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
     if (!this._userRef) {
       return;
     }
-
-    this._userRef.child("name").set(userName);
+    set(child(this._userRef, "name"), userName);
     this._userName = userName;
   }
 
@@ -632,7 +655,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
     const cursorData: CursorType | null =
       cursor != null ? cursor.toJSON() : null;
 
-    this._userRef.child("cursor").set(cursorData, function (error) {
+    set(child(this._userRef, "cursor"), cursorData).catch((error) => {
       if (typeof callback === "function") {
         callback(error, cursor);
       }
@@ -645,7 +668,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    * Callback listener for `child_added` and `child_changed` events on `users` node of Firebase ref.
    * @param childSnap - JSON serializable data snapshot of the child.
    */
-  protected _childChanged(childSnap: firebase.database.DataSnapshot): void {
+  protected _childChanged(childSnap: DataSnapshot): void {
     if (this._zombie) {
       // just in case we were cleaned up before we got the users data.
       return;
@@ -667,7 +690,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    * Callback listener for `child_removed` events on `users` node of Firebase ref.
    * @param childSnap - JSON serializable data snapshot of the child.
    */
-  protected _childRemoved(childSnap: firebase.database.DataSnapshot): void {
+  protected _childRemoved(childSnap: DataSnapshot): void {
     const userId = childSnap.key as string;
     this._trigger(FirebaseAdapterEvent.CursorChange, userId, null);
   }
@@ -676,7 +699,7 @@ export class FirebaseAdapter implements IDatabaseAdapter {
    * Attach listeners for `child_added`, `child_changed` and `child_removed` event on `users` node of Firebase ref.
    */
   protected _monitorCursors(): void {
-    const usersRef = this._databaseRef!.child("users");
+    const usersRef = child(this._databaseRef!, "users");
 
     this._firebaseOn(usersRef, "child_added", this._childChanged, this);
     this._firebaseOn(usersRef, "child_changed", this._childChanged, this);
@@ -684,25 +707,36 @@ export class FirebaseAdapter implements IDatabaseAdapter {
   }
 
   protected _firebaseOn(
-    ref: firebase.database.Reference | firebase.database.Query,
-    eventType: firebase.database.EventType,
+    ref: DatabaseReference | Query,
+    eventType: EventType,
     callback: FirebaseRefCallbackType,
     context?: ThisType<IDatabaseAdapter>
   ): void {
+    const callbackWithContext = callback.bind(context);
     this._firebaseCallbacks.push({
       ref,
       eventType,
-      callback,
+      callback: callbackWithContext,
       context,
     });
 
-    ref.on(eventType, callback, context);
+    if (eventType === "value") {
+      onValue(ref, callbackWithContext);
+    } else if (eventType === "child_added") {
+      onChildAdded(ref, callbackWithContext);
+    } else if (eventType === "child_removed") {
+      onChildRemoved(ref, callbackWithContext);
+    } else if (eventType === "child_changed") {
+      onChildChanged(ref, callbackWithContext);
+    } else if (eventType === "child_moved") {
+      onChildMoved(ref, callbackWithContext);
+    }
   }
 
   protected _removeFirebaseCallbacks() {
     for (const callbackRef of this._firebaseCallbacks) {
-      const { ref, eventType, callback, context } = callbackRef;
-      ref.off(eventType, callback, context);
+      const { ref, eventType, callback } = callbackRef;
+      off(ref, eventType, callback);
     }
 
     this._firebaseCallbacks = [];

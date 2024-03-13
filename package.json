@@ -1,7 +1,7 @@
 {
   "name": "@hackerrank/firepad",
   "description": "Collaborative text editing powered by Firebase",
-  "version": "0.8.1-beta",
+  "version": "0.8.1-beta-01",
   "author": {
     "email": "bprogyan@gmail.com",
     "name": "Progyan Bhattacharya",
@@ -73,7 +73,7 @@
     "child-process-promise": "2.2.1",
     "core-js": "3.11.0",
     "css-loader": "5.2.4",
-    "firebase": "7.12.0",
+    "firebase": "10.7.1",
     "git-format-staged": "2.1.1",
     "husky": "^7.0.0",
     "jest": "27.0.3",

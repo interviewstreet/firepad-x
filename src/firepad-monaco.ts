@@ -1,6 +1,7 @@
 import * as monaco from "monaco-editor";
 import { v4 as uuid } from "uuid";
-import * as firebase from "firebase/app";
+import { DatabaseReference } from 'firebase/database';
+import { DocumentReference } from 'firebase/firestore';
 
 import { IDatabaseAdapter, UserIDType } from "./database-adapter";
 import { FirebaseAdapter } from "./firebase-adapter";
@@ -17,7 +18,7 @@ import { FirestoreAdapter } from "./firestore-adapter";
  * @param options - Firepad constructor options (optional).
  */
 export function fromMonacoWithFirebase(
-  databaseRef: string | firebase.database.Reference,
+  databaseRef: string | DatabaseReference,
   editor: monaco.editor.IStandaloneCodeEditor,
   options: Partial<IFirepadConstructorOptions> = {},
   editorUtils: IMonacoEditorUtilsAdapter = new NativeMonacoEditorUtils()
@@ -52,7 +53,7 @@ export function fromMonacoWithFirebase(
  * @param options - Firepad constructor options (optional).
  */
 export function fromMonacoWithFirestore(
-  databaseRef: firebase.firestore.DocumentReference, //TODO should we support path : string
+  databaseRef: DocumentReference, //TODO should we support path : string
   editor: monaco.editor.IStandaloneCodeEditor,
   options: Partial<IFirepadConstructorOptions> = {}
 ): IFirepad {
@@ -86,7 +87,7 @@ export function fromMonacoWithFirestore(
  * @param options - Firepad constructor options (optional).
  */
 export function fromMonaco(
-  databaseRef: string | firebase.database.Reference,
+  databaseRef: string | DatabaseReference,
   editor: monaco.editor.IStandaloneCodeEditor,
   options: Partial<IFirepadConstructorOptions> = {}
 ): IFirepad {
