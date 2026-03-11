@@ -236,7 +236,19 @@ export class EditorClient implements IEditorClient {
       inverse.shouldBeComposedWithInverted(this._undoManager.last()!);
 
     const inverseMeta = new OperationMeta(this._cursor, cursorBefore);
-    this._undoManager.add(new WrappedOperation(inverse, inverseMeta), compose);
+    try {
+      this._undoManager.add(new WrappedOperation(inverse, inverseMeta), compose);
+    } catch (_e) {
+      // Compose with previous undo item failed (can happen with dictation/IME inputs
+      // that generate operations with incompatible lengths). Retry without composing
+      // to keep undo history intact and ensure OT sync continues.
+      try {
+        this._undoManager.add(new WrappedOperation(inverse, inverseMeta), false);
+      } catch (_e2) {
+        // Even non-composed add failed. Clear undo stack to prevent further errors.
+        this._undoManager.dispose();
+      }
+    }
     this._client.applyClient(operation);
   }
 

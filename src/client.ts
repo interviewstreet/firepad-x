@@ -246,6 +246,12 @@ class AwaitingWithBuffer implements IClientSynchronizationState {
     operation: ITextOperation
   ): IClientSynchronizationState {
     // Compose the user's changes onto the buffer
+    if (!this._buffer.canMergeWith(operation)) {
+      // Buffer and new operation have incompatible lengths due to a prior OT state
+      // divergence (e.g. caused by dictation/IME input that bypassed applyClient).
+      // Replace the buffer with the new operation to prevent a cascading compose failure.
+      return new AwaitingWithBuffer(this._outstanding, operation);
+    }
     const newBuffer = this._buffer.compose(operation);
     return new AwaitingWithBuffer(this._outstanding, newBuffer);
   }
