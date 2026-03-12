@@ -601,6 +601,57 @@ export class MonacoAdapter implements IEditorAdapter {
       return;
     }
 
+    /**
+     * Guard against out-of-bounds changes from dictation tools (e.g. Windows Win+H).
+     *
+     * Dictation tools like Windows Speech Recognition fire `insertFromSpeech` input
+     * events that bypass Monaco's normal composition flow. This can produce change
+     * events where `rangeOffset + rangeLength > contentLength` — i.e. the reported
+     * deletion range extends beyond what Firepad's `_lastDocLines` snapshot tracks.
+     *
+     * The previous fix attempt (firepad PR #1) caught the resulting ValidationError
+     * inside `_operationFromMonacoChange` and returned without emitting a Change event.
+     * That approach left two problems:
+     *   1. `_lastDocLines` was never updated → snapshot stayed stale for all future events.
+     *   2. No Change event was emitted → the OT state machine never saw the edit, so
+     *      `buffer.targetLength` diverged from `contentLength`, causing downstream
+     *      `compose()` failures ("base length of second operation must equal target length
+     *      of first") and ultimately `sendOperation() called with invalid operation`.
+     *
+     * The correct fix: detect the condition BEFORE entering `_operationFromMonacoChange`,
+     * emit a full-document replace operation (delete old + insert new) which:
+     *   - Has the correct `baseLength = contentLength` so all compose() calls succeed.
+     *   - Has the correct `targetLength = newContent.length` matching the model.
+     *   - Updates `_lastDocLines` so the next event starts from a clean snapshot.
+     *   - Sends a valid operation to Firebase (passes `canMergeWith`).
+     */
+    const hasOutOfBoundsChange = ev.changes.some(
+      (c) => c.rangeOffset + c.rangeLength > contentLength
+    );
+
+    if (hasOutOfBoundsChange) {
+      const newContent = model.getValue();
+
+      let mainOp: ITextOperation = new TextOperation();
+      let reverseOp: ITextOperation = new TextOperation();
+
+      if (contentLength > 0) {
+        mainOp = mainOp.delete(contentLength);
+        reverseOp = reverseOp.insert(content, null);
+      }
+
+      if (newContent.length > 0) {
+        mainOp = mainOp.insert(newContent, null);
+        reverseOp = reverseOp.delete(newContent);
+      }
+
+      /** Cache current content to use during next change trigger */
+      this._lastDocLines = model.getLinesContent();
+
+      this._trigger(EditorAdapterEvent.Change, mainOp, reverseOp);
+      return;
+    }
+
     const [mainOp, reverseOp] = this._operationFromMonacoChange(
       ev.changes,
       contentLength
