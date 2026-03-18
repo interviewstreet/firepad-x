@@ -246,19 +246,6 @@ class AwaitingWithBuffer implements IClientSynchronizationState {
     operation: ITextOperation
   ): IClientSynchronizationState {
     // Compose the user's changes onto the buffer
-    if (!this._buffer.canMergeWith(operation)) {
-      // Buffer and new operation have incompatible lengths due to a prior OT state
-      // divergence (e.g. caused by dictation/IME input that bypassed applyClient).
-      if (this._outstanding.canMergeWith(operation)) {
-        // The operation is compatible with outstanding (e.g. dictation fired based on
-        // the document state before the buffer was applied). Replace the buffer entirely.
-        return new AwaitingWithBuffer(this._outstanding, operation);
-      }
-      // Neither outstanding nor buffer can merge: the OT invariant
-      // (outstanding.targetLength == buffer.baseLength) cannot be preserved.
-      // Discard the incompatible operation to prevent cascading failures.
-      return this;
-    }
     const newBuffer = this._buffer.compose(operation);
     return new AwaitingWithBuffer(this._outstanding, newBuffer);
   }
@@ -294,22 +281,12 @@ class AwaitingWithBuffer implements IClientSynchronizationState {
   serverAck(client: IClient): IClientSynchronizationState {
     // The pending operation has been acknowledged
     // => send buffer
-    if (!this._outstanding.canMergeWith(this._buffer)) {
-      // Buffer became incompatible with outstanding (OT invariant violated).
-      // Skip sending the buffer to avoid an invalid-operation error.
-      return _synchronized;
-    }
     client.sendOperation(this._buffer);
     return new AwaitingConfirm(this._buffer);
   }
 
   serverRetry(client: IClient): IClientSynchronizationState {
     // Merge with our buffer and resend.
-    if (!this._outstanding.canMergeWith(this._buffer)) {
-      // Buffer became incompatible; resend only the outstanding operation.
-      client.sendOperation(this._outstanding);
-      return new AwaitingConfirm(this._outstanding);
-    }
     const outstanding = this._outstanding.compose(this._buffer);
     client.sendOperation(outstanding);
     return new AwaitingConfirm(outstanding);
