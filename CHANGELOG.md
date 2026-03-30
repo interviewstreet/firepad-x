@@ -22,6 +22,12 @@ Good to have: commit or PR links.
 
 -->
 
+## v0.8.6 [#92](https://github.com/interviewstreet/firepad-x/pull/92)
+
+### Changed
+
+- Harden Monaco OT change conversion for Windows dictation/IME by validating generated operations against editor state and falling back to a safe content-diff operation when batches are inconsistent.
+
 ## v0.8.0-beta [#75](https://github.com/interviewstreet/firepad-x/pull/75)
 
 ### Changed
