@@ -22,7 +22,7 @@ Good to have: commit or PR links.
 
 -->
 
-## v0.8.5-alpha [#92](https://github.com/interviewstreet/firepad-x/pull/92)
+## v0.8.6 [#92](https://github.com/interviewstreet/firepad-x/pull/92)
 
 ### Changed
 
