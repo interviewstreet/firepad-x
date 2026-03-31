@@ -13,21 +13,12 @@ jobs:
     name: Build and Deploy Package to NPM
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "14.x"
           registry-url: "https://registry.npmjs.org"
-      - uses: actions/cache@v2
-        with:
-          path: |
-            node_modules
-            $HOME/.npm
-            $HOME/.yarn-cache
-          key: ${{ runner.OS }}-node-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.OS }}-node-
-            ${{ runner.OS }}-
+          cache: "yarn"
       - name: Register Token
         run: |
           echo "//registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN" >$NPM_RC
