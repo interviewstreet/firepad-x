@@ -25,6 +25,7 @@ jobs:
           echo "_auth=$NODE_AUTH_TOKEN" >>$NPM_RC
           echo "always-auth=true" >>$NPM_RC
           echo "@hackerrank:registry=https://registry.npmjs.org" >>$NPM_RC
+          cat $NPM_RC
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_RC: /home/runner/work/_temp/.npmrc
