@@ -601,10 +601,38 @@ export class MonacoAdapter implements IEditorAdapter {
       return;
     }
 
-    const [mainOp, reverseOp] = this._operationFromMonacoChange(
-      ev.changes,
-      contentLength
-    );
+    const currentContent = model.getValue();
+    let mainOp: ITextOperation;
+    let reverseOp: ITextOperation;
+
+    try {
+      [mainOp, reverseOp] = this._operationFromMonacoChange(
+        ev.changes,
+        contentLength
+      );
+
+      // Dictation/IME can occasionally emit change batches that don't compose
+      // into a valid OT operation. Validate and fall back to a robust diff op.
+      if (!this._isOperationConsistent(mainOp, content, currentContent)) {
+        [mainOp, reverseOp] = this._operationFromContentDiff(
+          content,
+          currentContent
+        );
+      }
+    } catch (err) {
+      this._trigger(
+        EditorAdapterEvent.Error,
+        err,
+        "Failed to construct operation from Monaco change batch.",
+        {
+          changes: ev.changes,
+        }
+      );
+      [mainOp, reverseOp] = this._operationFromContentDiff(
+        content,
+        currentContent
+      );
+    }
 
     /** Cache current content to use during next change trigger */
     this._lastDocLines = model.getLinesContent();
@@ -678,7 +706,9 @@ export class MonacoAdapter implements IEditorAdapter {
      * Although monaco already returns changes in descending order,
      * it's not a part of its API specs.
      */
-    const sortedChanges = changes.sort((a, b) => b.rangeOffset - a.rangeOffset);
+    const sortedChanges = Array.from(changes).sort(
+      (a, b) => b.rangeOffset - a.rangeOffset
+    );
 
     for (const change of sortedChanges) {
       let changeOp: ITextOperation = new TextOperation();
@@ -734,6 +764,80 @@ export class MonacoAdapter implements IEditorAdapter {
     }
 
     return [mainOp, reverseOp];
+  }
+
+  protected _isOperationConsistent(
+    operation: ITextOperation,
+    previousContent: string,
+    currentContent: string
+  ): boolean {
+    try {
+      return operation.apply(previousContent) === currentContent;
+    } catch {
+      return false;
+    }
+  }
+
+  protected _operationFromContentDiff(
+    previousContent: string,
+    currentContent: string
+  ): [ITextOperation, ITextOperation] {
+    if (previousContent === currentContent) {
+      const identity = new TextOperation().retain(previousContent.length, null);
+      return [identity, identity.clone()];
+    }
+
+    let commonPrefixLength = 0;
+    const maxPrefixLength = Math.min(previousContent.length, currentContent.length);
+    while (
+      commonPrefixLength < maxPrefixLength &&
+      previousContent[commonPrefixLength] === currentContent[commonPrefixLength]
+    ) {
+      commonPrefixLength++;
+    }
+
+    let previousSuffixIndex = previousContent.length;
+    let currentSuffixIndex = currentContent.length;
+    while (
+      previousSuffixIndex > commonPrefixLength &&
+      currentSuffixIndex > commonPrefixLength &&
+      previousContent[previousSuffixIndex - 1] ===
+        currentContent[currentSuffixIndex - 1]
+    ) {
+      previousSuffixIndex--;
+      currentSuffixIndex--;
+    }
+
+    const removedLength = previousSuffixIndex - commonPrefixLength;
+    const insertedText = currentContent.slice(
+      commonPrefixLength,
+      currentSuffixIndex
+    );
+    const removedText = previousContent.slice(
+      commonPrefixLength,
+      previousSuffixIndex
+    );
+    const trailingRetainLength = previousContent.length - previousSuffixIndex;
+
+    let forward = new TextOperation().retain(commonPrefixLength, null);
+    let inverse = new TextOperation().retain(commonPrefixLength, null);
+
+    if (removedLength > 0) {
+      forward = forward.delete(removedLength);
+      inverse = inverse.insert(removedText, null);
+    }
+
+    if (insertedText.length > 0) {
+      forward = forward.insert(insertedText, null);
+      inverse = inverse.delete(insertedText.length);
+    }
+
+    if (trailingRetainLength > 0) {
+      forward = forward.retain(trailingRetainLength, null);
+      inverse = inverse.retain(trailingRetainLength, null);
+    }
+
+    return [forward, inverse];
   }
 
   /**

@@ -22,6 +22,18 @@ Good to have: commit or PR links.
 
 -->
 
+## v0.9.1-beta
+
+### Changed
+
+- Merge `main` (v0.8.6, [#92](https://github.com/interviewstreet/firepad-x/pull/92)) into the Firebase v10 line, so this beta includes the Monaco OT change-conversion hardening: generated operations are validated against editor state, with a safe content-diff fallback when a change batch is inconsistent.
+
+## v0.8.6 [#92](https://github.com/interviewstreet/firepad-x/pull/92)
+
+### Changed
+
+- Harden Monaco OT change conversion for Windows dictation/IME by validating generated operations against editor state and falling back to a safe content-diff operation when batches are inconsistent.
+
 ## v0.8.0-beta [#75](https://github.com/interviewstreet/firepad-x/pull/75)
 
 ### Changed
