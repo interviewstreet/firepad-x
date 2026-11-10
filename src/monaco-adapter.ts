@@ -614,6 +614,14 @@ export class MonacoAdapter implements IEditorAdapter {
       // Dictation/IME can occasionally emit change batches that don't compose
       // into a valid OT operation. Validate and fall back to a robust diff op.
       if (!this._isOperationConsistent(mainOp, content, currentContent)) {
+        console.warn(
+          "[firepad] Monaco change batch inconsistent with editor state; using content-diff operation",
+          {
+            previousLength: content.length,
+            currentLength: currentContent.length,
+            changeCount: ev.changes.length,
+          }
+        );
         [mainOp, reverseOp] = this._operationFromContentDiff(
           content,
           currentContent

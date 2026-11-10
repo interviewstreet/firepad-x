@@ -28,6 +28,10 @@ Good to have: commit or PR links.
 
 - Merge `main` (v0.8.6, [#92](https://github.com/interviewstreet/firepad-x/pull/92)) into the Firebase v10 line, so this beta includes the Monaco OT change-conversion hardening: generated operations are validated against editor state, with a safe content-diff fallback when a change batch is inconsistent.
 
+### Added
+
+- Diagnostics (logging only, no behaviour change): when applying a remote operation throws, `EditorClient` now logs operation/stack lengths (never document content) via `console.error` and rethrows; the Monaco adapter logs a warning when its change batch is inconsistent and the content-diff fallback is used.
+
 ## v0.8.6 [#92](https://github.com/interviewstreet/firepad-x/pull/92)
 
 ### Changed

@@ -127,7 +127,12 @@ export class EditorClient implements IEditorClient {
         this._client.serverRetry();
       },
       operation: (operation: ITextOperation) => {
-        this._client.applyServer(operation);
+        try {
+          this._client.applyServer(operation);
+        } catch (err) {
+          this._logApplyFailure(err, operation);
+          throw err;
+        }
       },
       initialRevision: () => {
         this._editorAdapter.setInitiated(true);
@@ -174,6 +179,57 @@ export class EditorClient implements IEditorClient {
     this._client.on(ClientEvent.SendOperation, (operation: ITextOperation) => {
       this._sendOperation(operation);
     });
+  }
+
+  /**
+   * Diagnostics only. When applying a remote operation throws, record lengths
+   * (never document content) so the failure can be explained from console logs.
+   * The caller rethrows, so behaviour is unchanged.
+   */
+  protected _logApplyFailure(err: unknown, operation: ITextOperation): void {
+    try {
+      type Lengthy =
+        | { _baseLength?: number; _targetLength?: number; _operation?: Lengthy }
+        | null
+        | undefined;
+      const lengthsOf = (op: unknown) => {
+        const o = op as Lengthy;
+        const inner = o && o._operation ? o._operation : o;
+        return inner
+          ? { base: inner._baseLength, target: inner._targetLength }
+          : null;
+      };
+      const stackInfo = (name: string) => {
+        const stack = ((this._undoManager as unknown) as Record<
+          string,
+          unknown
+        >)[name];
+        if (!Array.isArray(stack)) {
+          return null;
+        }
+        return {
+          depth: stack.length,
+          top: lengthsOf(stack[stack.length - 1]),
+          bottom: lengthsOf(stack[0]),
+        };
+      };
+      let clientState = "awaitingWithBuffer";
+      if (this._client.isSynchronized()) {
+        clientState = "synchronized";
+      } else if (this._client.isAwaitingConfirm()) {
+        clientState = "awaitingConfirm";
+      }
+      console.error("[firepad] Failed to apply remote operation", {
+        message: err instanceof Error ? err.message : String(err),
+        clientState,
+        remoteOperation: lengthsOf(operation),
+        editorLength: this._editorAdapter.getText().length,
+        undoStack: stackInfo("_undoStack"),
+        redoStack: stackInfo("_redoStack"),
+      });
+    } catch {
+      // Diagnostics must never mask the original error.
+    }
   }
 
   dispose(): void {
