@@ -28,6 +28,12 @@ interface ITextModelWithUndoRedo extends monaco.editor.ITextModel {
   redo: UndoRedoCallbackType | null;
 }
 
+/**
+ * How many times one adapter logs the "inconsistent change batch" warning.
+ * The content-diff fallback itself still runs every time; only the logging stops.
+ */
+const MAX_INCONSISTENT_BATCH_WARNINGS = 5;
+
 export class MonacoAdapter implements IEditorAdapter {
   protected readonly _monaco: monaco.editor.IStandaloneCodeEditor;
   protected readonly _classNames: string[];
@@ -36,6 +42,8 @@ export class MonacoAdapter implements IEditorAdapter {
   protected readonly _cursorWidgetController: ICursorWidgetController;
 
   protected _ignoreChanges: boolean;
+  /** How many "inconsistent change batch" warnings this adapter has logged so far. */
+  protected _inconsistentBatchWarnings = 0;
   protected _lastDocLines: string[];
   protected _lastCursorRange: monaco.Selection | null;
   protected _emitter: IEventEmitter | null;
@@ -614,14 +622,20 @@ export class MonacoAdapter implements IEditorAdapter {
       // Dictation/IME can occasionally emit change batches that don't compose
       // into a valid OT operation. Validate and fall back to a robust diff op.
       if (!this._isOperationConsistent(mainOp, content, currentContent)) {
-        console.warn(
-          "[firepad] Monaco change batch inconsistent with editor state; using content-diff operation",
-          {
-            previousLength: content.length,
-            currentLength: currentContent.length,
-            changeCount: ev.changes.length,
-          }
-        );
+        // Log only the first few times. If the editor keeps producing bad
+        // batches (e.g. on every keystroke), repeating the same warning would
+        // flood the console and add no new information.
+        if (this._inconsistentBatchWarnings < MAX_INCONSISTENT_BATCH_WARNINGS) {
+          this._inconsistentBatchWarnings++;
+          console.warn(
+            "[firepad] Monaco change batch inconsistent with editor state; using content-diff operation",
+            {
+              previousLength: content.length,
+              currentLength: currentContent.length,
+              changeCount: ev.changes.length,
+            }
+          );
+        }
         [mainOp, reverseOp] = this._operationFromContentDiff(
           content,
           currentContent

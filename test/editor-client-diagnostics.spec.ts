@@ -93,9 +93,33 @@ describe("EditorClient apply-failure diagnostics", () => {
       clientState: "awaitingConfirm",
       editorLength: SECRET.length,
     });
-    expect(details.undoStack.depth).toBe(1);
+    // Both stacks are read by private field name; assert they are really found,
+    // so a rename in the undo manager fails this test instead of silently
+    // turning the diagnostics into nulls.
+    expect(details.undoStack).toMatchObject({ depth: 1 });
+    expect(details.redoStack).toMatchObject({ depth: 0 });
     expect(details.remoteOperation).toEqual({ base: 0, target: 2 });
     expect(JSON.stringify(details)).not.toContain(SECRET);
+    client.dispose();
+  });
+
+  it("stops logging after the first few failures", () => {
+    const { client, typeLocally, receiveRemote } = setup();
+    typeLocally(
+      SECRET,
+      new TextOperation().retain(0, null).delete(SECRET.length + 1)
+    );
+
+    // Once the client is in a bad state every later remote operation fails the same way.
+    for (let i = 0; i < 10; i++) {
+      expect(() =>
+        receiveRemote(new TextOperation().insert("X", null).retain(2, null))
+      ).toThrow();
+    }
+
+    // 5 detailed logs, then 1 notice that logging stopped, then silence.
+    expect(errorSpy).toHaveBeenCalledTimes(6);
+    expect(errorSpy.mock.calls[5][0]).toContain("will not be logged");
     client.dispose();
   });
 });

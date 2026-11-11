@@ -30,7 +30,7 @@ Good to have: commit or PR links.
 
 ### Added
 
-- Diagnostics (logging only, no behaviour change): when applying a remote operation throws, `EditorClient` now logs operation/stack lengths (never document content) via `console.error` and rethrows; the Monaco adapter logs a warning when its change batch is inconsistent and the content-diff fallback is used.
+- Diagnostics (logging only, no behaviour change): when applying a remote operation throws, `EditorClient` now logs operation/stack lengths (never document content) via `console.error` and rethrows; the Monaco adapter logs a warning when its change batch is inconsistent and the content-diff fallback is used. Both logs are capped (first 5 per adapter / client) so a persistent bad state cannot flood the console.
 
 ## v0.8.6 [#92](https://github.com/interviewstreet/firepad-x/pull/92)
 

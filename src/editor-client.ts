@@ -49,10 +49,15 @@ export interface IEditorClient extends IDisposable {
   clearUndoRedoStack(): void;
 }
 
+/** How many failed remote-operation applies one EditorClient logs before going quiet. */
+const MAX_LOGGED_APPLY_FAILURES = 5;
+
 export class EditorClient implements IEditorClient {
   protected readonly _client: IClient;
   protected readonly _databaseAdapter: IDatabaseAdapter;
   protected readonly _editorAdapter: IEditorAdapter;
+  /** How many apply failures have been logged so far (see MAX_LOGGED_APPLY_FAILURES). */
+  protected _applyFailureLogs = 0;
   protected readonly _emitter: IEventEmitter;
   protected readonly _remoteClients: Map<string, IRemoteClient>;
   protected readonly _undoManager: IUndoManager;
@@ -185,13 +190,29 @@ export class EditorClient implements IEditorClient {
    * Diagnostics only. When applying a remote operation throws, record lengths
    * (never document content) so the failure can be explained from console logs.
    * The caller rethrows, so behaviour is unchanged.
+   *
+   * Logging is capped: once the editor is in a bad state, every later remote
+   * operation fails the same way, so logging each one would only add noise.
    */
   protected _logApplyFailure(err: unknown, operation: ITextOperation): void {
+    if (this._applyFailureLogs > MAX_LOGGED_APPLY_FAILURES) {
+      return;
+    }
+    this._applyFailureLogs++;
+    if (this._applyFailureLogs > MAX_LOGGED_APPLY_FAILURES) {
+      console.error(
+        `[firepad] Further failures to apply remote operations will not be logged (first ${MAX_LOGGED_APPLY_FAILURES} were).`
+      );
+      return;
+    }
+
     try {
       type Lengthy =
         | { _baseLength?: number; _targetLength?: number; _operation?: Lengthy }
         | null
         | undefined;
+      // Operations store the document length they apply to (base) and produce
+      // (target). Wrapped operations hold the real operation in `_operation`.
       const lengthsOf = (op: unknown) => {
         const o = op as Lengthy;
         const inner = o && o._operation ? o._operation : o;
@@ -199,6 +220,9 @@ export class EditorClient implements IEditorClient {
           ? { base: inner._baseLength, target: inner._targetLength }
           : null;
       };
+      // The undo manager does not expose its stacks, so they are read by their
+      // private field names. If those names ever change this returns null; the
+      // diagnostics spec asserts both stacks are present so such a rename is caught.
       const stackInfo = (name: string) => {
         const stack = ((this._undoManager as unknown) as Record<
           string,
@@ -213,11 +237,15 @@ export class EditorClient implements IEditorClient {
           bottom: lengthsOf(stack[0]),
         };
       };
-      let clientState = "awaitingWithBuffer";
+      // Name every known state explicitly; anything new shows up as "unknown"
+      // instead of being mislabelled as one of the others.
+      let clientState = "unknown";
       if (this._client.isSynchronized()) {
         clientState = "synchronized";
       } else if (this._client.isAwaitingConfirm()) {
         clientState = "awaitingConfirm";
+      } else if (this._client.isAwaitingWithBuffer()) {
+        clientState = "awaitingWithBuffer";
       }
       console.error("[firepad] Failed to apply remote operation", {
         message: err instanceof Error ? err.message : String(err),
